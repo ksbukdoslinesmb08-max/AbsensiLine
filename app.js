@@ -11,7 +11,15 @@ $('loginForm').addEventListener('submit',e=>{e.preventDefault();run(async()=>{co
 $('logout').onclick=()=>run(async()=>{try{await request({op:'logout'})}finally{token='';sessionStorage.removeItem('absensi_token');currentUser=null;showAuth(false);$('adminPanel').classList.add('hidden')}});
 $('changePasswordForm').onsubmit=e=>{e.preventDefault();run(async()=>{const f=Object.fromEntries(new FormData(e.target));await request({op:'changePassword',...f});e.target.reset();await refresh();msg('Password berhasil diganti')})};
 $('absen').onclick=()=>run(async()=>{const x=await request({op:'absen'});await refresh();msg('Absen masuk tercatat: '+x.time+' • '+x.status)});
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{['staff','settings','shifts','report'].forEach(t=>$(t+'Tab').classList.toggle('hidden',b.dataset.tab!==t));if(b.dataset.tab==='settings')run(loadSettings);if(b.dataset.tab==='shifts')run(loadShifts);if(b.dataset.tab==='report')run(loadReport)});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
+ const tab=b.dataset.tab;
+ document.querySelectorAll('[data-tab]').forEach(item=>{item.classList.toggle('active',item===b);item.setAttribute('aria-current',item===b?'page':'false')});
+ $('attendancePanel').classList.toggle('hidden',tab!=='attendance');
+ ['staff','settings','shifts','report'].forEach(t=>$(t+'Tab').classList.toggle('hidden',tab!==t));
+ if(tab==='settings')run(loadSettings);
+ if(tab==='shifts')run(loadShifts);
+ if(tab==='report')run(loadReport);
+});
 async function loadStaff(){staff=await request({op:'staff'});$('staffList').innerHTML='<table><thead><tr><th>Nama</th><th>Username</th><th>Role</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+staff.filter(s=>s.role!=='Admin').map(s=>'<tr><td>'+esc(s.name)+'</td><td>'+esc(s.username)+'</td><td>'+esc(s.role)+'</td><td>'+esc(s.active?'Aktif':'Nonaktif')+'</td><td><button data-edit="'+esc(s.id)+'">Edit</button><button data-pass="'+esc(s.id)+'">Reset Password</button><button data-delete="'+esc(s.id)+'" class="danger">Hapus</button></td></tr>').join('')+'</tbody></table>';document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editStaff(b.dataset.edit));document.querySelectorAll('[data-pass]').forEach(b=>b.onclick=()=>resetPassword(b.dataset.pass));document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteStaff(b.dataset.delete));$('shiftStaff').innerHTML=staff.filter(s=>s.role==='Kasir'&&s.active).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>').join('')}
 $('createStaff').onsubmit=e=>{e.preventDefault();if(creatingStaff)return;creatingStaff=true;const form=e.currentTarget;const btn=form.querySelector('[type=submit],button');if(btn)btn.disabled=true;run(async()=>{try{const f=Object.fromEntries(new FormData(form));await request({op:'manageStaff',mode:'create',...f});form.reset();await loadStaff()}finally{creatingStaff=false;if(btn)btn.disabled=false}})};
 function deleteStaff(id){const s=staff.find(x=>x.id===id);if(!s)return;if(!confirm('Hapus akun '+s.name+' ('+s.username+') secara permanen? Akun tidak bisa login lagi. Riwayat absensi tetap disimpan.'))return;run(async()=>{await request({op:'manageStaff',mode:'delete',id});await loadStaff();msg('Staff berhasil dihapus')})}
